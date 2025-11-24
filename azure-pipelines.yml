@@ -1,5 +1,5 @@
 # Docker + GRYPE security scanning
-# Build → Scan → Push (solo si pasa el scan)
+# Build → Scan → Push
 
 trigger:
 - main
@@ -17,34 +17,30 @@ variables:
 
 stages:
 
-# -------------------------------
-# STAGE 1 — BUILD + SECURITY SCAN
-# -------------------------------
 - stage: Build
-  displayName: Build, Scan and Push
+  displayName: Build and Scan
   jobs:
   - job: Build
-    displayName: Build + Scan
     pool:
       vmImage: $(vmImageName)
     steps:
 
-    # 1) INSTALL GRYPE
+    # 1 --- Install Grype
     - script: |
         echo "Installing Grype..."
         curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
         grype --version
       displayName: "Install Grype"
 
-    # 2) SCAN PROJECT DIRECTORY
+    # 2 --- Scan directory/project
     - script: |
-        echo "Scanning source code and dependencies..."
+        echo "Scanning project..."
         grype dir:.
-      displayName: "Grype Scan - Source Code"
+      displayName: "Grype Scan - Source"
 
-    # 3) BUILD IMAGE
+    # 3 --- Build DOCKER IMAGE LOCALLY (IMPORTANT)
     - task: Docker@2
-      displayName: "Build Docker Image"
+      displayName: "Build Local Docker Image"
       inputs:
         command: build
         repository: $(imageRepository)
@@ -53,17 +49,20 @@ stages:
         tags: |
           $(tag)
 
-    # 4) SCAN THE BUILT IMAGE
+    # 4 --- Scan the LOCAL image
     - script: |
-        echo "Scanning built Docker image..."
+        echo "Scanning Docker image locally..."
+        docker images
         grype $(imageRepository):$(tag)
       displayName: "Grype Scan - Docker Image"
 
-    # 5) PUSH IMAGE ONLY IF EVERYTHING PASSED
+    # 5 --- Push ONLY if Grype passes
     - task: Docker@2
       displayName: "Push Image (only if safe)"
       condition: succeeded()
       inputs:
         command: push
         repository: $(imageRepository)
-        containerRegistry:
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)

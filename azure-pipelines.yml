@@ -1,5 +1,4 @@
-# Docker + GRYPE security scanning
-# Build → Scan → Push
+# Pipeline probado en proyecto propio y luego traido a este proyecto
 
 trigger:
 - main
@@ -8,10 +7,18 @@ resources:
 - repo: self
 
 variables:
-  dockerRegistryServiceConnection: '468d2e45-b69f-45b8-882b-4cd69a605395'
-  imageRepository: 'willonlyonexdmicroserviciopy'
+  
+  dockerRegistryServiceConnection: 'container-inventario'
+
+  # 👉 Cambiar si quieres otro nombre para la imagen
+  imageRepository: 'nuevo-microservicio'
+
+  # 👉 Tu Azure Container Registry
   containerRegistry: 'backendconteiner.azurecr.io'
+
+  # 👉 Ruta del Dockerfile (editar si está en otra carpeta)
   dockerfilePath: '$(Build.SourcesDirectory)/dockerfile'
+
   tag: '$(Build.BuildId)'
   vmImageName: 'ubuntu-latest'
 
@@ -49,7 +56,7 @@ stages:
         tags: |
           $(tag)
 
-    # 4 --- Scan the LOCAL image (IMPORTANT FIX)
+    # 4 --- Scan the LOCAL image
     - script: |
         echo "Scanning Docker image locally..."
         docker images

@@ -38,7 +38,7 @@ stages:
         grype dir:.
       displayName: "Grype Scan - Source"
 
-    # 3 --- Build DOCKER IMAGE LOCALLY (IMPORTANT)
+    # 3 --- Build DOCKER IMAGE LOCALLY
     - task: Docker@2
       displayName: "Build Local Docker Image"
       inputs:
@@ -49,11 +49,12 @@ stages:
         tags: |
           $(tag)
 
-    # 4 --- Scan the LOCAL image
+    # 4 --- Scan the LOCAL image (IMPORTANT FIX)
     - script: |
         echo "Scanning Docker image locally..."
         docker images
-        grype $(imageRepository):$(tag)
+        echo "Image to scan: $(containerRegistry)/$(imageRepository):$(tag)"
+        grype $(containerRegistry)/$(imageRepository):$(tag)
       displayName: "Grype Scan - Docker Image"
 
     # 5 --- Push ONLY if Grype passes

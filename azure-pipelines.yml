@@ -1,0 +1,69 @@
+# Docker + GRYPE security scanning
+# Build → Scan → Push (solo si pasa el scan)
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  dockerRegistryServiceConnection: '468d2e45-b69f-45b8-882b-4cd69a605395'
+  imageRepository: 'willonlyonexdmicroserviciopy'
+  containerRegistry: 'backendconteiner.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/dockerfile'
+  tag: '$(Build.BuildId)'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+
+# -------------------------------
+# STAGE 1 — BUILD + SECURITY SCAN
+# -------------------------------
+- stage: Build
+  displayName: Build, Scan and Push
+  jobs:
+  - job: Build
+    displayName: Build + Scan
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+
+    # 1) INSTALL GRYPE
+    - script: |
+        echo "Installing Grype..."
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+        grype --version
+      displayName: "Install Grype"
+
+    # 2) SCAN PROJECT DIRECTORY
+    - script: |
+        echo "Scanning source code and dependencies..."
+        grype dir:.
+      displayName: "Grype Scan - Source Code"
+
+    # 3) BUILD IMAGE
+    - task: Docker@2
+      displayName: "Build Docker Image"
+      inputs:
+        command: build
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+    # 4) SCAN THE BUILT IMAGE
+    - script: |
+        echo "Scanning built Docker image..."
+        grype $(imageRepository):$(tag)
+      displayName: "Grype Scan - Docker Image"
+
+    # 5) PUSH IMAGE ONLY IF EVERYTHING PASSED
+    - task: Docker@2
+      displayName: "Push Image (only if safe)"
+      condition: succeeded()
+      inputs:
+        command: push
+        repository: $(imageRepository)
+        containerRegistry:

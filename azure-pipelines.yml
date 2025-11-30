@@ -1,5 +1,5 @@
-# Pipeline probado en proyecto propio y luego traido a este proyecto
-#commit2
+# Pipeline probado en proyecto propio y luego traído a este proyecto
+# commit2
 
 trigger:
 - main
@@ -10,16 +10,9 @@ resources:
 variables:
   
   dockerRegistryServiceConnection: 'Container Images Diplomado M3'
-
-  
   imageRepository: 'nuevo-microservicio'
-
-  
   containerRegistry: 'backendconteiner.azurecr.io'
-
-  
   dockerfilePath: '$(Build.SourcesDirectory)/dockerfile'
-
   tag: '$(Build.BuildId)'
   vmImageName: 'ubuntu-latest'
 
@@ -40,9 +33,9 @@ stages:
         grype --version
       displayName: "Install Grype"
 
-    # 2 --- Scan directory/project
+    # 2 --- Scan directory/project (código fuente)
     - script: |
-        echo "Scanning project..."
+        echo "Scanning project source code..."
         grype dir:.
       displayName: "Grype Scan - Source"
 
@@ -57,12 +50,12 @@ stages:
         tags: |
           $(tag)
 
-    # 4 --- Scan the LOCAL image
+    # 4 --- Scan the LOCAL image (sin usar el ACR)
     - script: |
         echo "Scanning Docker image locally..."
         docker images
-        echo "Image to scan: $(containerRegistry)/$(imageRepository):$(tag)"
-        grype $(containerRegistry)/$(imageRepository):$(tag)
+        echo "Image to scan (local): $(imageRepository):$(tag)"
+        grype "$(imageRepository):$(tag)"
       displayName: "Grype Scan - Docker Image"
 
     # 5 --- Push ONLY if Grype passes

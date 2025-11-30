@@ -8,7 +8,6 @@ resources:
 - repo: self
 
 variables:
-  
   dockerRegistryServiceConnection: 'Container Images Diplomado M3'
   imageRepository: 'nuevo-microservicio'
   containerRegistry: 'backendconteiner.azurecr.io'

@@ -53,9 +53,9 @@ stages:
     - script: |
         echo "Scanning Docker image locally..."
         docker images
-        IMAGE_FULL_NAME="$(containerRegistry)/$(imageRepository):$(tag)"
-        echo "Image to scan (local via docker): ${IMAGE_FULL_NAME}"
-        grype "$(imageRepository):$(tag)"
+        IMAGE_ID=$(docker images --format "{{.ID}}" | head -n 1)
+        echo "Using Image ID: $IMAGE_ID"
+        grype "docker:$IMAGE_ID"
       displayName: "Grype Scan - Docker Image"
 
     # 5 --- Push ONLY if Grype passes

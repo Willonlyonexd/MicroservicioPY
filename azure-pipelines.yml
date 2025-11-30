@@ -53,7 +53,8 @@ stages:
     - script: |
         echo "Scanning Docker image locally..."
         docker images
-        echo "Image to scan (local): $(imageRepository):$(tag)"
+        IMAGE_FULL_NAME="$(containerRegistry)/$(imageRepository):$(tag)"
+        echo "Image to scan (local via docker): ${IMAGE_FULL_NAME}"
         grype "$(imageRepository):$(tag)"
       displayName: "Grype Scan - Docker Image"
 

@@ -9,7 +9,7 @@ resources:
 
 variables:
   
-  dockerRegistryServiceConnection: 'container-inventario'
+  dockerRegistryServiceConnection: 'Container Images Diplomado M3'
 
   
   imageRepository: 'nuevo-microservicio'

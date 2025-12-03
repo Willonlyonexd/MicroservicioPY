@@ -1,0 +1,70 @@
+# Pipeline probado en proyecto propio y luego traído a este proyecto
+# commit2
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  dockerRegistryServiceConnection: 'Container Images Diplomado M3'
+  imageRepository: 'nuevo-microservicio'
+  containerRegistry: 'backendconteiner.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/dockerfile'
+  tag: '$(Build.BuildId)'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+
+- stage: Build
+  displayName: Build and Scan
+  jobs:
+  - job: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+
+    # 1 --- Install Grype
+    - script: |
+        echo "Installing Grype..."
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+        grype --version
+      displayName: "Install Grype"
+
+    # 2 --- Scan directory/project (código fuente)
+    - script: |
+        echo "Scanning project source code..."
+        grype dir:.
+      displayName: "Grype Scan - Source"
+
+    # 3 --- Build DOCKER IMAGE LOCALLY
+    - task: Docker@2
+      displayName: "Build Local Docker Image"
+      inputs:
+        command: build
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+    # 4 --- Scan the LOCAL image (sin usar el ACR)
+    - script: |
+        echo "Scanning Docker image locally..."
+        docker images
+        IMAGE_ID=$(docker images --format "{{.ID}}" | head -n 1)
+        echo "Using Image ID: $IMAGE_ID"
+        grype "docker:$IMAGE_ID"
+      displayName: "Grype Scan - Docker Image"
+
+    # 5 --- Push ONLY if Grype passes
+    - task: Docker@2
+      displayName: "Push Image (only if safe)"
+      condition: succeeded()
+      inputs:
+        command: push
+        repository: $(imageRepository)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)

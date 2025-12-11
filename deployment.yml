@@ -2,11 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mss-inventario
+  namespace: diplomado-m3
 spec:
   selector:
     matchLabels:
       app: inventario
-  replicas: 3
+  replicas: 1
   template:
     metadata:
       labels:

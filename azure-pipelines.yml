@@ -102,11 +102,17 @@ stages:
     pool:
       vmImage: $(vmImageName)
     steps:
+      - script: |
+          echo "Re-etiquetando imagen para Docker Hub..."
+          docker tag backendconteiner.azurecr.io/nuevo-microservicio:$(tag) \
+                     docker.io/wilsonmontanoclaros/microservicio-python:$(tag)
+        displayName: "Tag Imagen para Docker Hub"
+
       - task: Docker@2
         displayName: "Push Imagen a Docker Hub"
         inputs:
           command: push
-          repository: $(imageRepositoryDockerHub)
-          containerRegistry: $(dockerRegistryServiceConnectionDockerHub)
+          repository: 'wilsonmontanoclaros/microservicio-python'
+          containerRegistry: 'ServicioDockerHub'
           tags: |
             $(tag)

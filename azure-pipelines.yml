@@ -1,6 +1,3 @@
-# Pipeline probado en proyecto propio y luego traído a este proyecto
-# commit2
-
 trigger:
 - main
 
@@ -17,54 +14,65 @@ variables:
 
 stages:
 
-- stage: Build
-  displayName: Build and Scan
+- stage: Construccion
+  displayName: "Construcción y Seguridad"
   jobs:
-  - job: Build
+
+  # --- Job 1: Instalación de herramientas ---
+  - job: InstalarHerramientas
+    displayName: "Instalar Grype"
     pool:
       vmImage: $(vmImageName)
     steps:
+      - script: |
+          echo "Instalando Grype..."
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype --version
+        displayName: "Instalar Grype"
 
-    # 1 --- Install Grype
-    - script: |
-        echo "Installing Grype..."
-        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-        grype --version
-      displayName: "Install Grype"
+  # --- Job 2: Escaneo de seguridad ---
+  - job: EscaneoSeguridad
+    displayName: "Escaneo de Seguridad con Grype"
+    dependsOn: InstalarHerramientas
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+      - script: |
+          echo "Escaneando código fuente del proyecto..."
+          grype dir:.
+        displayName: "Grype Scan - Código Fuente"
 
-    # 2 --- Scan directory/project (código fuente)
-    - script: |
-        echo "Scanning project source code..."
-        grype dir:.
-      displayName: "Grype Scan - Source"
+  # --- Job 3: Construcción y Push de Docker ---
+  - job: ConstruirYPublicar
+    displayName: "Construir y Publicar Imagen Docker"
+    dependsOn: EscaneoSeguridad
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+      - task: Docker@2
+        displayName: "Construir Imagen Docker Local"
+        inputs:
+          command: build
+          repository: $(imageRepository)
+          dockerfile: $(dockerfilePath)
+          containerRegistry: $(dockerRegistryServiceConnection)
+          tags: |
+            $(tag)
 
-    # 3 --- Build DOCKER IMAGE LOCALLY
-    - task: Docker@2
-      displayName: "Build Local Docker Image"
-      inputs:
-        command: build
-        repository: $(imageRepository)
-        dockerfile: $(dockerfilePath)
-        containerRegistry: $(dockerRegistryServiceConnection)
-        tags: |
-          $(tag)
+      - script: |
+          echo "Escaneando imagen Docker local..."
+          docker images
+          IMAGE_ID=$(docker images --format "{{.ID}}" | head -n 1)
+          echo "Usando Image ID: $IMAGE_ID"
+          grype "docker:$IMAGE_ID"
+        displayName: "Grype Scan - Imagen Docker"
 
-    # 4 --- Scan the LOCAL image (sin usar el ACR)
-    - script: |
-        echo "Scanning Docker image locally..."
-        docker images
-        IMAGE_ID=$(docker images --format "{{.ID}}" | head -n 1)
-        echo "Using Image ID: $IMAGE_ID"
-        grype "docker:$IMAGE_ID"
-      displayName: "Grype Scan - Docker Image"
-
-    # 5 --- Push ONLY if Grype passes
-    - task: Docker@2
-      displayName: "Push Image (only if safe)"
-      condition: succeeded()
-      inputs:
-        command: push
-        repository: $(imageRepository)
-        containerRegistry: $(dockerRegistryServiceConnection)
-        tags: |
-          $(tag)
+      - task: Docker@2
+        displayName: "Push Imagen (solo si pasa el escaneo)"
+        condition: succeeded()
+        inputs:
+          command: push
+          repository: $(imageRepository)
+          containerRegistry: $(dockerRegistryServiceConnection)
+          tags: |
+            $(tag)

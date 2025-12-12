@@ -5,60 +5,22 @@ resources:
 - repo: self
 
 variables:
-  # Conexión y repositorio para ACR
   dockerRegistryServiceConnectionACR: 'Container Images Diplomado M3'
-  imageRepositoryACR: 'nuevo-microservicio'
-  containerRegistryACR: 'backendconteiner.azurecr.io'
-
-  # Conexión y repositorio para Docker Hub
   dockerRegistryServiceConnectionDockerHub: 'DockerHubConnection'
+  imageRepositoryACR: 'nuevo-microservicio'
   imageRepositoryDockerHub: 'wilsonmontanoclaros/microservicio-python'
+  containerRegistryACR: 'backendconteiner.azurecr.io'
   containerRegistryDockerHub: 'docker.io'
-
-  dockerfilePath: '$(Build.SourcesDirectory)/dockerfile'
   tag: '1.0'
   vmImageName: 'ubuntu-latest'
+  dockerfilePath: '$(Build.SourcesDirectory)/dockerfile'
 
 stages:
-
 - stage: Construccion
   displayName: "Construcción y Seguridad"
   jobs:
-
-  # --- Job 1: Instalación y verificación de Grype ---
-  - job: InstalarHerramientas
-    displayName: "Instalar Grype"
-    pool:
-      vmImage: $(vmImageName)
-    steps:
-      - script: |
-          echo "Instalando Grype..."
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-          grype --version
-        displayName: "Instalar y Verificar Grype"
-
-  # --- Job 2: Escaneo de seguridad del código fuente ---
-  - job: EscaneoCodigo
-    displayName: "Escaneo de Código Fuente"
-    dependsOn: InstalarHerramientas
-    pool:
-      vmImage: $(vmImageName)
-    steps:
-      - script: |
-          echo "Instalando Grype..."
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-          grype --version
-        displayName: "Instalar Grype"
-
-      - script: |
-          echo "Escaneando código fuente del proyecto..."
-          grype dir:.
-        displayName: "Grype Scan - Código Fuente"
-
-  # --- Job 3: Construcción y publicación en ACR ---
-  - job: ConstruirYPublicarACR
-    displayName: "Construir y Publicar Imagen en ACR"
-    dependsOn: EscaneoCodigo
+  - job: ConstruirYPublicar
+    displayName: "Construir y Publicar Imagen en ACR y Docker Hub"
     pool:
       vmImage: $(vmImageName)
     steps:
@@ -86,6 +48,7 @@ stages:
           grype "docker:$IMAGE_ID"
         displayName: "Grype Scan - Imagen Docker"
 
+      # Push a Azure Container Registry
       - task: Docker@2
         displayName: "Push Imagen a ACR"
         condition: succeeded()
@@ -96,15 +59,10 @@ stages:
           tags: |
             $(tag)
 
-  # --- Job 4: Publicación en Docker Hub ---
-  - job: PublicarDockerHub
-    displayName: "Publicar Imagen en Docker Hub"
-    dependsOn: ConstruirYPublicarACR
-    pool:
-      vmImage: $(vmImageName)
-    steps:
+      # Push a Docker Hub
       - task: Docker@2
         displayName: "Push Imagen a Docker Hub"
+        condition: succeeded()
         inputs:
           command: push
           repository: $(imageRepositoryDockerHub)

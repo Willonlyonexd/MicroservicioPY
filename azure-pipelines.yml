@@ -95,6 +95,15 @@ stages:
           tags: |
             $(tag)
 
+      # Exportar la imagen como TAR para compartirla con otros jobs
+      - script: |
+          echo "Exportando imagen como TAR..."
+          docker save $(containerRegistry)/$(imageRepository):$(tag) -o image.tar
+        displayName: "Exportar imagen como TAR"
+
+      - publish: image.tar
+        artifact: dockerImage
+
   # --- Job 4: Publicación en Docker Hub ---
   - job: PublicarDockerHub
     displayName: "Publicar Imagen en Docker Hub"
@@ -102,17 +111,22 @@ stages:
     pool:
       vmImage: $(vmImageName)
     steps:
+      - download: current
+        artifact: dockerImage
+
       - script: |
+          echo "Cargando imagen TAR..."
+          docker load -i image.tar
           echo "Re-etiquetando imagen para Docker Hub..."
-          docker tag backendconteiner.azurecr.io/nuevo-microservicio:$(tag) \
-                     docker.io/wilsonmontanoclaros/microservicio-python:$(tag)
-        displayName: "Tag Imagen para Docker Hub"
+          docker tag $(containerRegistry)/$(imageRepository):$(tag) \
+                     docker.io/$(imageRepositoryDockerHub):$(tag)
+        displayName: "Cargar y Tag Imagen para Docker Hub"
 
       - task: Docker@2
         displayName: "Push Imagen a Docker Hub"
         inputs:
           command: push
-          repository: 'wilsonmontanoclaros/microservicio-python'
-          containerRegistry: 'ServicioDockerHub'
+          repository: $(imageRepositoryDockerHub)
+          containerRegistry: $(dockerRegistryServiceConnectionDockerHub)
           tags: |
             $(tag)
